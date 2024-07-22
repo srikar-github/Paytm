@@ -1,6 +1,7 @@
 const express = require("express");
 
-const  { authMiddleware } = require("../middleware");
+const { authMiddleware } = require("../middleware");
+const { Account } = require('../db');
 
 const router = express.Router();
 
@@ -46,6 +47,11 @@ router.post("/signup", async function (req, res) {
 
   const userId = user._id;
 
+  await Account.create({
+    userId,
+    balance: 1 + Math.random() * 10000,
+  });
+
   const token = jwt.sign(
     {
       userId,
@@ -57,8 +63,6 @@ router.post("/signup", async function (req, res) {
     messege: "User created successfully",
     token: token,
   });
-
-
 });
 
 // signin
@@ -101,51 +105,54 @@ router.post("/signin", async (req, res) => {
 });
 
 const updateBody = zod.object({
-	password: zod.string().optional(),
-    firstName: zod.string().optional(),
-    lastName: zod.string().optional(),
-})
+  password: zod.string().optional(),
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
+});
 
 router.put("/", authMiddleware, async (req, res) => {
-    const { success } = updateBody.safeParse(req.body)
-    if (!success) {
-        res.status(411).json({
-            message: "Error while updating information"
-        })
-    }
+  const { success } = updateBody.safeParse(req.body);
+  if (!success) {
+    res.status(411).json({
+      message: "Error while updating information",
+    });
+  }
 
-    await User.updateOne(req.body, {
-        _id: req.userId
-    })
+  await User.updateOne(req.body, {
+    _id: req.userId,
+  });
 
-    res.json({
-        message: "Updated successfully"
-    })
-})
+  res.json({
+    message: "Updated successfully",
+  });
+});
 
 router.get("/bulk", async (req, res) => {
-    const filter = req.query.filter || "";
+  const filter = req.query.filter || "";
 
-    const users = await User.find({
-        $or: [{
-            firstName: {
-                "$regex": filter
-            }
-        }, {
-            lastName: {
-                "$regex": filter
-            }
-        }]
-    })
+  const users = await User.find({
+    $or: [
+      {
+        firstName: {
+          $regex: filter,
+        },
+      },
+      {
+        lastName: {
+          $regex: filter,
+        },
+      },
+    ],
+  });
 
-    res.json({
-        user: users.map(user => ({
-            username: user.username,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            _id: user._id
-        }))
-    })
-})
+  res.json({
+    user: users.map((user) => ({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      _id: user._id,
+    })),
+  });
+});
 
 module.exports = router;
